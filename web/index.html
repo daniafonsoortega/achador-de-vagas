@@ -73,6 +73,7 @@
   const $=id=>document.getElementById(id);
   const fields=['cargo','palavras_chave','localizacao','modelo_trabalho','salario_minimo','tipo_contrato','idiomas','restricoes','curriculo'];
   let profile=null;
+  let resumeProcessing=false;
 
   function message(target,text,ok=true){target.replaceChildren();const box=document.createElement('div');box.className=`msg ${ok?'':'err'}`;box.textContent=text;target.append(box)}
   function setBusy(button,busy){button.disabled=busy}
@@ -129,10 +130,11 @@
   $('login-button').onclick=async()=>{const email=$('email').value.trim();if(!email)return message($('login-message'),'Informe seu e-mail.',false);setBusy($('login-button'),true);const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:location.href.split('#')[0]}});setBusy($('login-button'),false);message($('login-message'),error?error.message:'Link enviado. Verifique também o spam.',!error)};
   $('logout-button').onclick=()=>supabase.auth.signOut();
 
-  $('resume-file').onchange=async event=>{
-    const file=event.target.files[0];if(!file)return;message($('file-message'),'Lendo currículo…');
+  async function processSelectedResume(){
+    const file=$('resume-file').files[0];if(!file||resumeProcessing)return;
+    if(!$('privacy').checked){message($('file-message'),'Aceite o aviso de privacidade abaixo para processar o currículo.',false);return}
+    resumeProcessing=true;message($('file-message'),'Lendo currículo…');
     try{
-      if(!$('privacy').checked)throw new Error('Aceite o aviso de privacidade abaixo antes de enviar o currículo.');
       const text=await extract(file);if(!text)throw new Error('Não foi possível extrair texto. O PDF pode ser uma imagem digitalizada.');
       $('curriculo').value=text;
       const ext=file.name.split('.').pop().toLowerCase();const path=`${profile.user_id}/curriculo.${ext}`;
@@ -141,7 +143,11 @@
       const acceptedAt=profile.privacy_accepted_at||new Date().toISOString();
       const {data,error}=await supabase.from('profiles').update({curriculo:text,curriculo_arquivo_nome:file.name,curriculo_arquivo_path:path,privacy_accepted_at:acceptedAt}).eq('user_id',profile.user_id).select().single();if(error)throw error;
       profile=data;await renderFile();message($('file-message'),'Currículo enviado e texto extraído. Revise antes de salvar.');
-    }catch(e){message($('file-message'),e.message,false)}
+    }catch(e){message($('file-message'),e.message,false)}finally{resumeProcessing=false}
+  }
+  $('resume-file').onchange=processSelectedResume;
+  $('privacy').onchange=()=>{
+    if($('privacy').checked){$('save-message').replaceChildren();processSelectedResume()}
   };
 
   $('save-button').onclick=async()=>{
