@@ -133,6 +133,7 @@
   async function processSelectedResume(){
     const file=$('resume-file').files[0];if(!file||resumeProcessing)return;
     if(!$('privacy').checked){message($('file-message'),'Aceite o aviso de privacidade abaixo para processar o currículo.',false);return}
+    if(!profile){message($('file-message'),'Não foi possível carregar seu perfil. Atualize a página e tente novamente.',false);return}
     resumeProcessing=true;message($('file-message'),'Lendo currículo…');
     try{
       const text=await extract(file);if(!text)throw new Error('Não foi possível extrair texto. O PDF pode ser uma imagem digitalizada.');
@@ -151,6 +152,7 @@
   };
 
   $('save-button').onclick=async()=>{
+    if(!profile)return message($('save-message'),'Não foi possível carregar seu perfil. Atualize a página e tente novamente.',false);
     if(!$('privacy').checked)return message($('save-message'),'É necessário aceitar o aviso de privacidade para ativar a busca.',false);
     if(!$('cargo').value.trim())return message($('save-message'),'Informe pelo menos um cargo ou área desejada.',false);
     if($('curriculo').value.trim().length<80)return message($('save-message'),'Envie ou cole um currículo com informações suficientes para o matching.',false);
