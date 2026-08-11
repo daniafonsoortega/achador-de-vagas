@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+web/config.js
+__pycache__/
+*.pyc
+*.zip
+.DS_Store

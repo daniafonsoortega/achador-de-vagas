@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Achador de Vagas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+  <style>
+    :root{--bg:#f1f4f1;--card:#fff;--ink:#1e2a28;--muted:#5a6b66;--green:#2f6f5e;--dark:#234f42;--border:#dce3dd;--danger:#a83f2b;--soft:#eaf2ef}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}.wrap{max-width:720px;margin:auto;padding:42px 20px 80px}h1,h2{font-family:Fraunces,serif;margin:.1em 0 .35em}header{text-align:center;margin-bottom:30px}header p,.hint{color:var(--muted)}.card{background:var(--card);border:1px solid var(--border);border-radius:15px;padding:26px;margin:18px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}label{display:block;font-weight:600;margin:15px 0 6px}input,textarea,select{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--ink);font:inherit}textarea{min-height:110px;resize:vertical}input:focus,textarea:focus,select:focus{outline:2px solid var(--green);outline-offset:1px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}button{border:0;border-radius:9px;padding:11px 18px;background:var(--green);color:#fff;font:600 14px Inter;cursor:pointer}button:hover{background:var(--dark)}button:disabled{opacity:.55;cursor:wait}.secondary{background:#fff;color:var(--green);border:1px solid var(--green)}.danger{background:#fff;color:var(--danger);border:1px solid var(--danger)}.msg{padding:10px 12px;border-radius:8px;margin-top:12px;background:var(--soft)}.msg.err{background:#fbeae6;color:var(--danger)}.status{display:inline-block;padding:7px 12px;border-radius:20px;background:var(--soft);color:var(--dark)}.status.off{background:#f5eee8;color:#8c632a}.privacy{font-size:13px;border-top:1px solid var(--border);margin-top:18px;padding-top:14px}.privacy label{font-weight:400;margin:0;display:flex;gap:9px}.privacy input{width:auto;margin-top:4px}.hidden{display:none!important}a{color:var(--green)}footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px}@media(max-width:600px){.grid{grid-template-columns:1fr}.card{padding:20px}.wrap{padding-top:25px}}
+  </style>
+</head>
+<body><main class="wrap">
+  <header><h1>Achador de Vagas</h1><p>Vagas relevantes no seu Telegram, sem precisar procurar todo dia.</p></header>
+
+  <section id="login" class="card">
+    <h2>Entrar</h2><p class="hint">Enviaremos um link de acesso para o seu e-mail.</p>
+    <label for="email">E-mail</label><input id="email" type="email" autocomplete="email" placeholder="voce@email.com">
+    <div class="row"><button id="login-button">Enviar link</button></div><div id="login-message"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <section class="card">
+      <h2>Perfil e preferências</h2>
+      <div class="grid">
+        <div><label for="cargo">Cargo ou área desejada</label><input id="cargo" placeholder="Marketing Digital"></div>
+        <div><label for="localizacao">Localização</label><input id="localizacao" value="Barcelona"></div>
+        <div><label for="modelo_trabalho">Modelo de trabalho</label><select id="modelo_trabalho"><option>Qualquer</option><option>Remoto</option><option>Híbrido</option><option>Presencial</option></select></div>
+        <div><label for="tipo_contrato">Contrato</label><select id="tipo_contrato"><option>Qualquer</option><option>Indefinido</option><option>Temporário</option><option>Freelance</option><option>Estágio</option></select></div>
+        <div><label for="salario_minimo">Salário mínimo anual (€)</label><input id="salario_minimo" type="number" min="0" step="1000" placeholder="22000"></div>
+        <div><label for="idiomas">Idiomas</label><input id="idiomas" placeholder="Português, espanhol, inglês"></div>
+      </div>
+      <label for="palavras_chave">Palavras-chave</label><input id="palavras_chave" placeholder="CRM, redes sociais, conteúdo">
+      <label for="restricoes">Restrições ou coisas que não quer</label><textarea id="restricoes" placeholder="Sem turno noturno; não vendas porta a porta"></textarea>
+
+      <label for="resume-file">Currículo (PDF, DOCX ou TXT; máximo 5 MB)</label>
+      <input id="resume-file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+      <div id="file-current" class="hint"></div><div id="file-message"></div>
+      <label for="curriculo">Texto extraído do currículo</label>
+      <textarea id="curriculo" style="min-height:220px" placeholder="O texto do arquivo aparecerá aqui para você revisar."></textarea>
+
+      <div class="privacy">
+        <label><input id="privacy" type="checkbox"><span>Autorizo o uso do meu perfil e currículo para buscar e classificar vagas. Entendo que partes do conteúdo serão processadas pelos fornecedores indicados no <a href="privacy.html" target="_blank">aviso de privacidade</a>.</span></label>
+      </div>
+      <div class="row"><button id="save-button">Salvar perfil</button><button id="logout-button" class="secondary">Sair</button></div>
+      <div id="save-message"></div>
+    </section>
+
+    <section class="card">
+      <h2>Telegram</h2><div id="telegram-status" class="status off">Não conectado</div>
+      <div class="row"><a id="telegram-link" target="_blank" rel="noopener"><button>Conectar Telegram</button></a><button id="disconnect-button" class="secondary hidden">Desconectar</button></div>
+      <label style="font-weight:400"><input id="paused" type="checkbox" style="width:auto"> Pausar notificações</label>
+    </section>
+
+    <section class="card"><h2>Seus dados</h2><p class="hint">Você pode apagar permanentemente sua conta, currículo e histórico.</p><button id="delete-button" class="danger">Excluir minha conta</button><div id="delete-message"></div></section>
+  </div>
+  <footer>Este serviço recomenda oportunidades; confirme sempre os dados no site da empresa. <a href="privacy.html">Privacidade</a> · <a id="support-link" href="#">Ajuda</a></footer>
+</main>
+
+<script src="config.js"></script>
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  import * as pdfjs from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs';
+  pdfjs.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+
+  const config=window.APP_CONFIG||{};
+  const SUPABASE_URL=config.supabaseUrl||'';
+  const SUPABASE_ANON_KEY=config.supabaseAnonKey||'';
+  const TELEGRAM_BOT_USERNAME=config.telegramBotUsername||'';
+  const supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  const $=id=>document.getElementById(id);
+  const fields=['cargo','palavras_chave','localizacao','modelo_trabalho','salario_minimo','tipo_contrato','idiomas','restricoes','curriculo'];
+  let profile=null;
+
+  function message(target,text,ok=true){target.replaceChildren();const box=document.createElement('div');box.className=`msg ${ok?'':'err'}`;box.textContent=text;target.append(box)}
+  function setBusy(button,busy){button.disabled=busy}
+  function validConfig(){return /^https:\/\/.+\.supabase\.co$/.test(SUPABASE_URL)&&SUPABASE_ANON_KEY.length>20&&TELEGRAM_BOT_USERNAME.length>2}
+
+  async function extract(file){
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(file.size>5*1024*1024)throw new Error('O arquivo excede 5 MB.');
+    if(ext==='txt')return file.text();
+    const buffer=await file.arrayBuffer();
+    if(ext==='docx')return (await window.mammoth.extractRawText({arrayBuffer:buffer})).value.trim();
+    if(ext==='pdf'){
+      const pdf=await pdfjs.getDocument({data:buffer}).promise;let text='';
+      for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
+        const page=await pdf.getPage(pageNumber);const content=await page.getTextContent();
+        text+=content.items.map(item=>item.str).join(' ')+'\n';
+      }
+      return text.trim();
+    }
+    throw new Error('Formato não suportado.');
+  }
+
+  async function loadProfile(session){
+    let {data,error}=await supabase.from('profiles').select('*').eq('user_id',session.user.id).maybeSingle();
+    if(error)throw error;
+    if(!data){({data,error}=await supabase.from('profiles').insert({user_id:session.user.id,email:session.user.email}).select().single());if(error)throw error}
+    profile=data;
+    fields.forEach(id=>{if(data[id]!==null&&data[id]!==undefined)$(id).value=data[id]});
+    $('privacy').checked=Boolean(data.privacy_accepted_at);$('paused').checked=data.notifications_paused;
+    renderTelegram();await renderFile();
+  }
+
+  function renderTelegram(){
+    const connected=Boolean(profile?.telegram_chat_id);
+    $('telegram-status').className=`status ${connected?'':'off'}`;$('telegram-status').textContent=connected?'Conectado':'Não conectado';
+    $('telegram-link').classList.toggle('hidden',connected);$('disconnect-button').classList.toggle('hidden',!connected);
+    if(profile)$('telegram-link').href=`https://t.me/${encodeURIComponent(TELEGRAM_BOT_USERNAME)}?start=${encodeURIComponent(profile.connect_code)}`;
+  }
+
+  async function renderFile(){
+    $('file-current').replaceChildren();if(!profile?.curriculo_arquivo_path)return;
+    const {data}=await supabase.storage.from('curriculos').createSignedUrl(profile.curriculo_arquivo_path,300);
+    const span=document.createElement('span');span.textContent=`Arquivo atual: ${profile.curriculo_arquivo_nome} `;$('file-current').append(span);
+    if(data?.signedUrl){const a=document.createElement('a');a.href=data.signedUrl;a.target='_blank';a.rel='noopener';a.textContent='baixar';$('file-current').append(a)}
+  }
+
+  async function boot(){
+    if(!validConfig()){message($('login-message'),'Aplicação ainda não configurada. Entre em contato com o responsável.',false);$('login-button').disabled=true;return}
+    const {data:{session}}=await supabase.auth.getSession();if(session)await showApp(session);
+    supabase.auth.onAuthStateChange((event,session)=>setTimeout(async()=>{if(event==='SIGNED_IN'&&session)await showApp(session);if(event==='SIGNED_OUT'){profile=null;$('login').classList.remove('hidden');$('app').classList.add('hidden')}},0));
+  }
+  async function showApp(session){$('login').classList.add('hidden');$('app').classList.remove('hidden');try{await loadProfile(session)}catch(e){message($('save-message'),`Não foi possível carregar o perfil: ${e.message}`,false)}}
+
+  $('login-button').onclick=async()=>{const email=$('email').value.trim();if(!email)return message($('login-message'),'Informe seu e-mail.',false);setBusy($('login-button'),true);const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:location.href.split('#')[0]}});setBusy($('login-button'),false);message($('login-message'),error?error.message:'Link enviado. Verifique também o spam.',!error)};
+  $('logout-button').onclick=()=>supabase.auth.signOut();
+
+  $('resume-file').onchange=async event=>{
+    const file=event.target.files[0];if(!file)return;message($('file-message'),'Lendo currículo…');
+    try{
+      if(!$('privacy').checked)throw new Error('Aceite o aviso de privacidade abaixo antes de enviar o currículo.');
+      const text=await extract(file);if(!text)throw new Error('Não foi possível extrair texto. O PDF pode ser uma imagem digitalizada.');
+      $('curriculo').value=text;
+      const ext=file.name.split('.').pop().toLowerCase();const path=`${profile.user_id}/curriculo.${ext}`;
+      if(profile.curriculo_arquivo_path&&profile.curriculo_arquivo_path!==path)await supabase.storage.from('curriculos').remove([profile.curriculo_arquivo_path]);
+      const {error:uploadError}=await supabase.storage.from('curriculos').upload(path,file,{upsert:true,contentType:file.type});if(uploadError)throw uploadError;
+      const acceptedAt=profile.privacy_accepted_at||new Date().toISOString();
+      const {data,error}=await supabase.from('profiles').update({curriculo:text,curriculo_arquivo_nome:file.name,curriculo_arquivo_path:path,privacy_accepted_at:acceptedAt}).eq('user_id',profile.user_id).select().single();if(error)throw error;
+      profile=data;await renderFile();message($('file-message'),'Currículo enviado e texto extraído. Revise antes de salvar.');
+    }catch(e){message($('file-message'),e.message,false)}
+  };
+
+  $('save-button').onclick=async()=>{
+    if(!$('privacy').checked)return message($('save-message'),'É necessário aceitar o aviso de privacidade para ativar a busca.',false);
+    if(!$('cargo').value.trim())return message($('save-message'),'Informe pelo menos um cargo ou área desejada.',false);
+    if($('curriculo').value.trim().length<80)return message($('save-message'),'Envie ou cole um currículo com informações suficientes para o matching.',false);
+    const payload={privacy_accepted_at:profile.privacy_accepted_at||new Date().toISOString(),notifications_paused:$('paused').checked};
+    fields.forEach(id=>{let value=$(id).value.trim();payload[id]=id==='salario_minimo'?(value?Number(value):null):(value||null)});
+    setBusy($('save-button'),true);const {data,error}=await supabase.from('profiles').update(payload).eq('user_id',profile.user_id).select().single();setBusy($('save-button'),false);
+    if(error)message($('save-message'),error.message,false);else{profile=data;message($('save-message'),'Perfil salvo.')}
+  };
+  $('paused').onchange=async()=>{if(!profile)return;const {data,error}=await supabase.from('profiles').update({notifications_paused:$('paused').checked}).eq('user_id',profile.user_id).select().single();if(!error)profile=data};
+  $('disconnect-button').onclick=async()=>{const {data,error}=await supabase.from('profiles').update({telegram_chat_id:null,connect_code:crypto.randomUUID().replaceAll('-','')}).eq('user_id',profile.user_id).select().single();if(error)message($('save-message'),error.message,false);else{profile=data;renderTelegram()}};
+  $('delete-button').onclick=async()=>{if(!confirm('Excluir permanentemente sua conta, currículo e histórico? Esta ação não pode ser desfeita.'))return;setBusy($('delete-button'),true);const {error}=await supabase.rpc('delete_my_account');if(error){setBusy($('delete-button'),false);message($('delete-message'),error.message,false)}else await supabase.auth.signOut()};
+  if(config.supportEmail){$('support-link').href=`mailto:${config.supportEmail}`}else{$('support-link').classList.add('hidden')}
+  boot();
+</script>
+</body></html>
