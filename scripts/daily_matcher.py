@@ -25,9 +25,10 @@ MAX_SEARCH_RESULTS = 25
 
 HEADERS = {
     "apikey": SERVICE_KEY,
-    "Authorization": f"Bearer {SERVICE_KEY}",
     "Content-Type": "application/json",
 }
+if SERVICE_KEY.startswith("eyJ"):
+    HEADERS["Authorization"] = f"Bearer {SERVICE_KEY}"
 PROFILE_FIELDS = (
     "cargo", "palavras_chave", "localizacao", "modelo_trabalho",
     "salario_minimo", "tipo_contrato", "idiomas", "restricoes", "curriculo",

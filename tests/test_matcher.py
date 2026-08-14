@@ -24,10 +24,13 @@ try:
 except ImportError:
     sys.modules["requests"] = types.ModuleType("requests")
 
-from scripts.daily_matcher import fails_hard_filters, score_job_locally, search_terms  # noqa: E402
+from scripts.daily_matcher import HEADERS, fails_hard_filters, score_job_locally, search_terms  # noqa: E402
 
 
 class MatcherTests(unittest.TestCase):
+    def test_new_supabase_secret_is_not_sent_as_jwt(self):
+        self.assertNotIn("Authorization", HEADERS)
+
     def test_local_score_rewards_title_and_keyword_matches(self):
         profile = {"cargo": "Publishing Editor", "palavras_chave": "content, CMS"}
         matching = {"title": "Publishing Editor", "description": "Content work with a CMS"}
