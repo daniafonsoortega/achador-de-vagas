@@ -24,10 +24,16 @@ try:
 except ImportError:
     sys.modules["requests"] = types.ModuleType("requests")
 
-from scripts.daily_matcher import fails_hard_filters, search_terms  # noqa: E402
+from scripts.daily_matcher import fails_hard_filters, score_job_locally, search_terms  # noqa: E402
 
 
 class MatcherTests(unittest.TestCase):
+    def test_local_score_rewards_title_and_keyword_matches(self):
+        profile = {"cargo": "Publishing Editor", "palavras_chave": "content, CMS"}
+        matching = {"title": "Publishing Editor", "description": "Content work with a CMS"}
+        unrelated = {"title": "Warehouse Assistant", "description": "Picking and packing"}
+        self.assertGreater(score_job_locally(profile, matching)[0], score_job_locally(profile, unrelated)[0])
+
     def test_search_terms_are_deduplicated_and_limited(self):
         profile = {"cargo": "Marketing", "palavras_chave": "CRM, Marketing, Conteúdo, SEO"}
         self.assertEqual(search_terms(profile), ["Marketing", "CRM", "Conteúdo"])

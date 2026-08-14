@@ -65,7 +65,7 @@ No repositório GitHub, crie estes **Actions secrets**:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ADZUNA_APP_ID`
 - `ADZUNA_APP_KEY`
-- `ANTHROPIC_API_KEY`
+- `ANTHROPIC_API_KEY` (opcional; sem ela, o sistema usa ranking local por cargo e palavras-chave)
 - `TELEGRAM_BOT_TOKEN`
 
 Variáveis opcionais: `ANTHROPIC_MODEL`, `MATCH_THRESHOLD` e `MAX_NOTIFICATIONS_PER_USER`. O workflow roda às 08:00 UTC e também pode ser acionado manualmente.

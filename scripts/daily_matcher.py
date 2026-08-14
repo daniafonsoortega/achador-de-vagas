@@ -108,7 +108,25 @@ def fails_hard_filters(profile: dict, job: dict) -> str | None:
     return None
 
 
-def score_job(client: anthropic.Anthropic, profile: dict, job: dict) -> tuple[float, str]:
+def score_job_locally(profile: dict, job: dict) -> tuple[float, str]:
+    title = str(job.get("title", "")).lower()
+    description = str(job.get("description", "")).lower()
+    text = f"{title} {description}"
+    cargo_words = set(re.findall(r"[a-zà-ÿ0-9]+", str(profile.get("cargo") or "").lower()))
+    keywords = [term.strip().lower() for term in str(profile.get("palavras_chave") or "").split(",") if term.strip()]
+    title_hits = sum(word in title for word in cargo_words if len(word) >= 3)
+    keyword_hits = sum(term in text for term in keywords)
+    score = min(10.0, 3.0 + title_hits * 2.0 + keyword_hits * 1.25)
+    matched = [term for term in keywords if term in text][:3]
+    reason = "Compatibilidade por cargo e palavras-chave"
+    if matched:
+        reason += f": {', '.join(matched)}"
+    return score, reason + "."
+
+
+def score_job(client: anthropic.Anthropic | None, profile: dict, job: dict) -> tuple[float, str]:
+    if client is None:
+        return score_job_locally(profile, job)
     profile_text = "\n".join(f"{field}: {profile[field]}" for field in PROFILE_FIELDS if profile.get(field))
     company = (job.get("company") or {}).get("display_name", "")
     location = (job.get("location") or {}).get("display_name", "")
@@ -151,7 +169,7 @@ def send_job(chat_id: str, job: dict, score: float, reason: str) -> None:
     response.raise_for_status()
 
 
-def process_profile(client: anthropic.Anthropic, profile: dict) -> None:
+def process_profile(client: anthropic.Anthropic | None, profile: dict) -> None:
     decisions = current_decisions(profile["user_id"])
     candidates: list[tuple[float, str, dict]] = []
     for job in search_jobs(profile):
@@ -186,7 +204,9 @@ def process_profile(client: anthropic.Anthropic, profile: dict) -> None:
 
 
 def main() -> None:
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    client = anthropic.Anthropic(api_key=api_key) if api_key else None
+    print(f"ranking={'anthropic' if client else 'local'}")
     profiles = active_profiles()
     print(f"active_profiles={len(profiles)}")
     for profile in profiles:
