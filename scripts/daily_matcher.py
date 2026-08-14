@@ -71,8 +71,11 @@ def save_decision(profile: dict, job_id: str, status: str, score: float, reason:
 
 
 def search_terms(profile: dict) -> list[str]:
-    terms = [profile.get("cargo") or ""]
+    cargo = str(profile.get("cargo") or "").strip()
+    terms = [cargo]
     terms.extend((profile.get("palavras_chave") or "").split(","))
+    if len([term for term in terms if term.strip()]) < 3:
+        terms.extend(word for word in re.findall(r"[A-Za-zÀ-ÿ0-9]+", cargo) if len(word) >= 4)
     return list(dict.fromkeys(term.strip() for term in terms if term.strip()))[:3]
 
 

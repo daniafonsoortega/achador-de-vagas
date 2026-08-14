@@ -41,6 +41,10 @@ class MatcherTests(unittest.TestCase):
         profile = {"cargo": "Marketing", "palavras_chave": "CRM, Marketing, Conteúdo, SEO"}
         self.assertEqual(search_terms(profile), ["Marketing", "CRM", "Conteúdo"])
 
+    def test_search_terms_expand_multiword_role_without_keywords(self):
+        profile = {"cargo": "Publishing Editor", "palavras_chave": ""}
+        self.assertEqual(search_terms(profile), ["Publishing Editor", "Publishing", "Editor"])
+
     def test_salary_below_minimum_is_rejected(self):
         profile = {"salario_minimo": 25_000, "modelo_trabalho": "Qualquer"}
         job = {"salary_max": 22_000, "description": ""}
