@@ -27,6 +27,7 @@ alter table public.profiles enable row level security;
 
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on table public.profiles to authenticated;
+grant select, insert, update, delete on table public.profiles to service_role;
 
 drop policy if exists "select_own_profile" on public.profiles;
 create policy "select_own_profile" on public.profiles for select
@@ -55,6 +56,8 @@ create table if not exists public.job_decisions (
 );
 alter table public.job_decisions enable row level security;
 grant select on table public.job_decisions to authenticated;
+grant select, insert, update, delete on table public.job_decisions to service_role;
+grant usage, select on sequence public.job_decisions_id_seq to service_role;
 
 drop policy if exists "read_own_job_decisions" on public.job_decisions;
 create policy "read_own_job_decisions" on public.job_decisions for select
