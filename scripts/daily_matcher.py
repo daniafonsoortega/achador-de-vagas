@@ -7,8 +7,10 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import urlencode
+from xml.etree import ElementTree
 
 import anthropic
 import requests
@@ -22,6 +24,12 @@ MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 THRESHOLD = float(os.getenv("MATCH_THRESHOLD", "7"))
 MAX_NOTIFICATIONS = int(os.getenv("MAX_NOTIFICATIONS_PER_USER", "8"))
 MAX_SEARCH_RESULTS = 25
+FEINA_ACTIVA_URL = "https://feinaactiva.gencat.cat/api/offers/offers-xml"
+ENABLE_LINKEDIN_SEARCH = os.getenv("ENABLE_LINKEDIN_SEARCH_LINK", "true").lower() == "true"
+JOOBLE_API_KEY = os.getenv("JOOBLE_API_KEY", "").strip()
+INFOJOBS_CLIENT_ID = os.getenv("INFOJOBS_CLIENT_ID", "").strip()
+INFOJOBS_CLIENT_SECRET = os.getenv("INFOJOBS_CLIENT_SECRET", "").strip()
+FEINA_MAX_DAYS = int(os.getenv("FEINA_ACTIVA_MAX_DAYS", "14"))
 
 HEADERS = {
     "apikey": SERVICE_KEY,
@@ -54,9 +62,11 @@ def current_decisions(user_id: str) -> dict[tuple[str, str], dict]:
     return {(row["source"], row["job_id"]): row for row in rows}
 
 
-def save_decision(profile: dict, job_id: str, status: str, score: float, reason: str) -> None:
+def save_decision(
+    profile: dict, source: str, job_id: str, status: str, score: float, reason: str
+) -> None:
     payload = {
-        "user_id": profile["user_id"], "source": "adzuna", "job_id": job_id,
+        "user_id": profile["user_id"], "source": source, "job_id": job_id,
         "status": status, "score": score, "reason": reason[:500],
         "profile_updated_at": profile["updated_at"],
         "decided_at": datetime.now(timezone.utc).isoformat(),
@@ -79,7 +89,7 @@ def search_terms(profile: dict) -> list[str]:
     return list(dict.fromkeys(term.strip() for term in terms if term.strip()))[:3]
 
 
-def search_jobs(profile: dict) -> list[dict]:
+def search_adzuna(profile: dict) -> list[dict]:
     found: dict[str, dict] = {}
     for term in search_terms(profile):
         response = requests.get(
@@ -94,8 +104,182 @@ def search_jobs(profile: dict) -> list[dict]:
         response.raise_for_status()
         for job in response.json().get("results", []):
             if job.get("id") is not None:
+                job["_source"] = "adzuna"
                 found[str(job["id"])] = job
     return list(found.values())
+
+
+def _xml_text(node: ElementTree.Element, field: str) -> str:
+    return (node.findtext(field) or "").strip()
+
+
+def search_feina_activa(profile: dict) -> list[dict]:
+    """Read Generalitat de Catalunya's official public job feed."""
+    response = requests.get(FEINA_ACTIVA_URL, timeout=45)
+    response.raise_for_status()
+    root = ElementTree.fromstring(response.content)
+    terms = [term.lower() for term in search_terms(profile)]
+    wanted_location = str(profile.get("localizacao") or "Barcelona").lower()
+    jobs: list[dict] = []
+    for ad in root.findall(".//ad"):
+        title = _xml_text(ad, "title")
+        description = " ".join(
+            filter(None, (_xml_text(ad, "content"), _xml_text(ad, "experience"), _xml_text(ad, "requirements")))
+        )
+        location = " ".join(filter(None, (_xml_text(ad, "city"), _xml_text(ad, "region"))))
+        searchable = f"{title} {description}".lower()
+        if terms and not any(term in searchable for term in terms):
+            continue
+        if wanted_location and wanted_location not in location.lower():
+            continue
+        published = _xml_text(ad, "date")
+        try:
+            published_date = datetime.strptime(published, "%d/%m/%Y").date()
+            if published_date < (datetime.now(timezone.utc).date() - timedelta(days=FEINA_MAX_DAYS)):
+                continue
+        except ValueError:
+            continue
+        job_id = _xml_text(ad, "id")
+        if not job_id:
+            continue
+        jobs.append({
+            "id": job_id,
+            "_source": "feina-activa",
+            "title": title,
+            "description": description,
+            "redirect_url": _xml_text(ad, "url"),
+            "company": {"display_name": _xml_text(ad, "company")},
+            "location": {"display_name": location},
+            "contract_time": _xml_text(ad, "contract"),
+            "created": published,
+        })
+    return jobs[:MAX_SEARCH_RESULTS]
+
+
+def search_jooble(profile: dict) -> list[dict]:
+    if not JOOBLE_API_KEY:
+        return []
+    found: dict[str, dict] = {}
+    for term in search_terms(profile):
+        response = requests.post(
+            f"https://jooble.org/api/{JOOBLE_API_KEY}",
+            json={
+                "keywords": term,
+                "location": profile.get("localizacao") or "Barcelona",
+                "page": "1",
+                "ResultOnPage": str(MAX_SEARCH_RESULTS),
+                "companysearch": "false",
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        for raw in response.json().get("jobs", []):
+            job_id = str(raw.get("id") or raw.get("link") or "")
+            if not job_id:
+                continue
+            found[job_id] = {
+                "id": job_id,
+                "_source": "jooble",
+                "title": raw.get("title", ""),
+                "description": raw.get("snippet", ""),
+                "redirect_url": raw.get("link", ""),
+                "company": {"display_name": raw.get("company", "")},
+                "location": {"display_name": raw.get("location", "")},
+                "contract_time": raw.get("type", ""),
+                "created": raw.get("updated", ""),
+            }
+    return list(found.values())
+
+
+def search_infojobs(profile: dict) -> list[dict]:
+    if not (INFOJOBS_CLIENT_ID and INFOJOBS_CLIENT_SECRET):
+        return []
+    found: dict[str, dict] = {}
+    for term in search_terms(profile):
+        response = requests.get(
+            "https://api.infojobs.net/api/9/offer",
+            auth=(INFOJOBS_CLIENT_ID, INFOJOBS_CLIENT_SECRET),
+            params={"q": term, "maxResults": MAX_SEARCH_RESULTS, "order": "updated-desc"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        for raw in response.json().get("offers", []):
+            job_id = str(raw.get("id") or "")
+            if not job_id:
+                continue
+            province = raw.get("province") or {}
+            location = province.get("value", "") if isinstance(province, dict) else str(province)
+            wanted_location = str(profile.get("localizacao") or "Barcelona").lower()
+            if wanted_location and wanted_location not in location.lower():
+                continue
+            author = raw.get("author") or {}
+            company = author.get("name", "") if isinstance(author, dict) else str(author)
+            found[job_id] = {
+                "id": job_id,
+                "_source": "infojobs",
+                "title": raw.get("title", ""),
+                "description": raw.get("requirementMin", ""),
+                "redirect_url": raw.get("link", ""),
+                "company": {"display_name": company},
+                "location": {"display_name": location},
+                "created": raw.get("updated", ""),
+            }
+    return list(found.values())
+
+
+def job_fingerprint(job: dict) -> str:
+    company = (job.get("company") or {}).get("display_name", "")
+    value = f"{job.get('title', '')}|{company}".lower()
+    return re.sub(r"[^a-z0-9]+", "", value)
+
+
+def search_jobs(profile: dict) -> list[dict]:
+    jobs = search_adzuna(profile)
+    for source_name, search in (
+        ("feina-activa", search_feina_activa),
+        ("jooble", search_jooble),
+        ("infojobs", search_infojobs),
+    ):
+        try:
+            jobs.extend(search(profile))
+        except Exception as exc:
+            print(f"source={source_name} error={type(exc).__name__}: {exc}")
+    unique: dict[str, dict] = {}
+    for job in jobs:
+        unique.setdefault(job_fingerprint(job) or f"{job['_source']}:{job['id']}", job)
+    return list(unique.values())
+
+
+def linkedin_search_url(profile: dict) -> str:
+    params = {
+        "keywords": profile.get("cargo") or "",
+        "location": profile.get("localizacao") or "Barcelona",
+        "f_TPR": "r86400",
+        "sortBy": "DD",
+    }
+    return "https://www.linkedin.com/jobs/search/?" + urlencode(params)
+
+
+def send_linkedin_search(profile: dict, decisions: dict[tuple[str, str], dict]) -> None:
+    if not ENABLE_LINKEDIN_SEARCH:
+        return
+    today = datetime.now(timezone.utc).date().isoformat()
+    if ("linkedin-search", today) in decisions:
+        return
+    body = (
+        "🔎 <b>Busca complementar no LinkedIn</b>\n"
+        "Barcelona · vagas publicadas nas últimas 24 horas\n"
+        "O LinkedIn não permite que o Job Match leia automaticamente todas as vagas. "
+        "Abra a busca pronta e confira os resultados:\n"
+        f"🔗 {html.escape(linkedin_search_url(profile))}"
+    )
+    response = requests.post(
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+        json={"chat_id": profile["telegram_chat_id"], "text": body, "parse_mode": "HTML", "disable_web_page_preview": True},
+        timeout=20,
+    )
+    response.raise_for_status()
+    save_decision(profile, "linkedin-search", today, "sent", 0, "Busca pública das últimas 24 horas")
 
 
 def fails_hard_filters(profile: dict, job: dict) -> str | None:
@@ -178,7 +362,8 @@ def process_profile(client: anthropic.Anthropic | None, profile: dict) -> None:
     candidates: list[tuple[float, str, dict]] = []
     for job in search_jobs(profile):
         job_id = str(job["id"])
-        previous = decisions.get(("adzuna", job_id))
+        source = str(job.get("_source") or "unknown")
+        previous = decisions.get((source, job_id))
         if (
             previous
             and previous["status"] in {"sent", "rejected"}
@@ -187,13 +372,13 @@ def process_profile(client: anthropic.Anthropic | None, profile: dict) -> None:
             continue
         rejected_by = fails_hard_filters(profile, job)
         if rejected_by:
-            save_decision(profile, job_id, "rejected", 0, rejected_by)
+            save_decision(profile, source, job_id, "rejected", 0, rejected_by)
             continue
         try:
             score, reason = score_job(client, profile, job)
             candidates.append((score, reason, job))
         except Exception as exc:
-            save_decision(profile, job_id, "failed", 0, str(exc))
+            save_decision(profile, source, job_id, "failed", 0, str(exc))
         time.sleep(0.2)
 
     candidates.sort(key=lambda item: item[0], reverse=True)
@@ -203,8 +388,9 @@ def process_profile(client: anthropic.Anthropic | None, profile: dict) -> None:
         if score >= THRESHOLD and sent < MAX_NOTIFICATIONS:
             send_job(profile["telegram_chat_id"], job, score, reason)
             status, sent = "sent", sent + 1
-        save_decision(profile, str(job["id"]), status, score, reason)
+        save_decision(profile, str(job.get("_source") or "unknown"), str(job["id"]), status, score, reason)
     print(f"profile={profile['user_id']} candidates={len(candidates)} sent={sent}")
+    send_linkedin_search(profile, decisions)
 
 
 def main() -> None:

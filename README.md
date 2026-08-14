@@ -68,7 +68,11 @@ No repositório GitHub, crie estes **Actions secrets**:
 - `ANTHROPIC_API_KEY` (opcional; sem ela, o sistema usa ranking local por cargo e palavras-chave)
 - `TELEGRAM_BOT_TOKEN`
 
-Variáveis opcionais: `ANTHROPIC_MODEL`, `MATCH_THRESHOLD` e `MAX_NOTIFICATIONS_PER_USER`. O workflow roda às 08:00 UTC e também pode ser acionado manualmente.
+Fontes atuais: Adzuna e o feed público oficial da Feina Activa. Jooble e InfoJobs também estão implementados e são ativados automaticamente quando seus segredos são configurados. O bot deduplica vagas equivalentes entre as fontes.
+
+O bot também envia uma busca complementar do LinkedIn já filtrada por localização e pelas últimas 24 horas; as vagas do LinkedIn precisam ser abertas manualmente porque não há API pública de pesquisa para avaliá-las com segurança.
+
+Variáveis opcionais: `ANTHROPIC_MODEL`, `MATCH_THRESHOLD`, `MAX_NOTIFICATIONS_PER_USER` e `ENABLE_LINKEDIN_SEARCH_LINK`. O workflow roda às 08:00 UTC e também pode ser acionado manualmente.
 
 ## 5. Verificações automáticas
 

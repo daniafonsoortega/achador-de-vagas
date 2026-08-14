@@ -29,10 +29,14 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
           ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+          INFOJOBS_CLIENT_ID: ${{ secrets.INFOJOBS_CLIENT_ID }}
+          INFOJOBS_CLIENT_SECRET: ${{ secrets.INFOJOBS_CLIENT_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL || 'claude-sonnet-4-6' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           MATCH_THRESHOLD: ${{ vars.MATCH_THRESHOLD || '7' }}
           MAX_NOTIFICATIONS_PER_USER: ${{ vars.MAX_NOTIFICATIONS_PER_USER || '8' }}
+          ENABLE_LINKEDIN_SEARCH_LINK: ${{ vars.ENABLE_LINKEDIN_SEARCH_LINK || 'true' }}
+          FEINA_ACTIVA_MAX_DAYS: ${{ vars.FEINA_ACTIVA_MAX_DAYS || '14' }}
         run: python scripts/daily_matcher.py
-

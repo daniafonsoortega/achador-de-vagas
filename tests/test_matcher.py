@@ -24,7 +24,14 @@ try:
 except ImportError:
     sys.modules["requests"] = types.ModuleType("requests")
 
-from scripts.daily_matcher import HEADERS, fails_hard_filters, score_job_locally, search_terms  # noqa: E402
+from scripts.daily_matcher import (  # noqa: E402
+    HEADERS,
+    fails_hard_filters,
+    job_fingerprint,
+    linkedin_search_url,
+    score_job_locally,
+    search_terms,
+)
 
 
 class MatcherTests(unittest.TestCase):
@@ -44,6 +51,17 @@ class MatcherTests(unittest.TestCase):
     def test_search_terms_expand_multiword_role_without_keywords(self):
         profile = {"cargo": "Publishing Editor", "palavras_chave": ""}
         self.assertEqual(search_terms(profile), ["Publishing Editor", "Publishing", "Editor"])
+
+    def test_linkedin_search_is_barcelona_last_24_hours(self):
+        url = linkedin_search_url({"cargo": "Publishing Editor", "localizacao": "Barcelona"})
+        self.assertIn("keywords=Publishing+Editor", url)
+        self.assertIn("location=Barcelona", url)
+        self.assertIn("f_TPR=r86400", url)
+
+    def test_job_fingerprint_deduplicates_case_and_punctuation(self):
+        first = {"title": "Editor/a!", "company": {"display_name": "Example S.L."}}
+        second = {"title": "EDITOR A", "company": {"display_name": "Example SL"}}
+        self.assertEqual(job_fingerprint(first), job_fingerprint(second))
 
     def test_salary_below_minimum_is_rejected(self):
         profile = {"salario_minimo": 25_000, "modelo_trabalho": "Qualquer"}
